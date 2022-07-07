@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/ckatsak/acticrds-go/pkg/apis/acti"
+	acti "github.com/ckatsak/acticrds-go/pkg/apis/acti.cslab.ece.ntua.gr"
 )
 
 // SchemeGroupVersion is group version used to register these objects

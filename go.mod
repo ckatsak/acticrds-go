@@ -4,8 +4,9 @@ go 1.18
 
 //k8s.io/api v0.21.5
 //k8s.io/client-go v0.21.5
+//k8s.io/klog/v2 v2.8.0
+
 require (
-	github.com/ckatsak/acticrds-go/pkg/apis/acti v0.0.0-00010101000000-000000000000
 	k8s.io/apimachinery v0.21.5
 	k8s.io/code-generator v0.21.5
 )
@@ -42,4 +43,4 @@ require (
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
 
-replace github.com/ckatsak/acticrds-go/pkg/apis/acti => ./
+//replace github.com/ckatsak/acticrds-go/pkg/apis/acticslabecentuagr => ./

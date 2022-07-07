@@ -14,22 +14,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -o errexit
-set -o nounset
-set -o pipefail
+set -euo pipefail
 
-SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
-CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
+GO="$(command -v 'go')"
+AWK="$(command -v 'awk')"
+RSYNC="$(command -v 'rsync')"
 
-# generate the code with:
-# --output-base    because this script should also be able to run inside the vendor dir of
-#                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
-#                  instead of the $GOPATH directly. For normal projects this can be dropped.
-bash "${CODEGEN_PKG}"/generate-groups.sh \
+MODULE_ROOT="$(realpath "$(dirname "${BASH_SOURCE[0]}")")/.."
+MODULE_NAME="$(head -1 "$MODULE_ROOT/go.mod" | "$AWK" '{print $2}')"
+
+CODEGEN_PKG_BASE="$("$AWK" '/k8s.io\/code-generator/ {print $1; exit}' "$MODULE_ROOT/go.mod")"
+CODEGEN_VERSION="$("$AWK" '/k8s.io\/code-generator/ {print $2; exit}' "$MODULE_ROOT/go.mod")"
+CODEGEN_PKG_PATH="${CODEGEN_PKG_PATH:-$("$GO" env GOPATH)/pkg/mod/${CODEGEN_PKG_BASE}@${CODEGEN_VERSION}}"
+
+TMP_GEN_DIR="$(mktemp -d)"
+cleanup() {
+	rm -rf "$TMP_GEN_DIR"
+}
+trap "cleanup" EXIT SIGINT
+
+OLD_SUM="$(find 'pkg' -type f -exec md5sum {} \; | sort -k 2 | md5sum | "$AWK" '{print $1}')"
+
+bash "$CODEGEN_PKG_PATH/generate-groups.sh" \
 	'all' \
-	'github.com/ckatsak/acticrds-go/pkg/client' \
-	'github.com/ckatsak/acticrds-go/pkg/apis' \
+	"$MODULE_NAME/pkg/client" \
+	"$MODULE_NAME/pkg/apis" \
 	'acti.cslab.ece.ntua.gr:v1alpha1' \
-	--output-base "$(dirname "${BASH_SOURCE[0]}")/../../.." \
-	--go-header-file "${SCRIPT_ROOT}/hack/acti-boilerplate.go.txt"
+	--output-base "$TMP_GEN_DIR" \
+	--go-header-file "${MODULE_ROOT}/hack/acti-boilerplate.go.txt"
+
+"$RSYNC" -a "$TMP_GEN_DIR/$MODULE_NAME/pkg/client" "$MODULE_ROOT/pkg"
+"$RSYNC" -a \
+	"$TMP_GEN_DIR/$MODULE_NAME/pkg/apis/acti.cslab.ece.ntua.gr/v1alpha1/zz_generated.deepcopy.go" \
+	"$MODULE_ROOT/pkg/apis/acti.cslab.ece.ntua.gr/v1alpha1/zz_generated.deepcopy.go"
+
+NEW_SUM="$(find 'pkg' -type f -exec md5sum {} \; | sort -k 2 | md5sum | "$AWK" '{print $1}')"
+[ "$OLD_SUM" == "$NEW_SUM" ] || echo -e '\n\t==>  ./pkg/client/ MODIFIED!\n'
 

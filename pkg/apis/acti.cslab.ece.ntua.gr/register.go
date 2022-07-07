@@ -14,7 +14,7 @@
   limitations under the License.
 */
 
-package acti
+package acticslabecentuagr
 
 // GroupName is the group name used in this package
 const (
