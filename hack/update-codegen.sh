@@ -1,5 +1,5 @@
 #!/bin/bash
-
+#
 # Copyright 2022 Christos Katsakioris
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,6 +23,8 @@ RSYNC="$(command -v 'rsync')"
 MODULE_ROOT="$(realpath "$(dirname "${BASH_SOURCE[0]}")")/.."
 MODULE_NAME="$(head -1 "$MODULE_ROOT/go.mod" | "$AWK" '{print $2}')"
 
+# XXX(ckatsak): Assuming code-generator has been installed in $GOPATH/pkg/mod
+#               after tidying up dependencies...
 CODEGEN_PKG_BASE="$("$AWK" '/k8s.io\/code-generator/ {print $1; exit}' "$MODULE_ROOT/go.mod")"
 CODEGEN_VERSION="$("$AWK" '/k8s.io\/code-generator/ {print $2; exit}' "$MODULE_ROOT/go.mod")"
 CODEGEN_PKG_PATH="${CODEGEN_PKG_PATH:-$("$GO" env GOPATH)/pkg/mod/${CODEGEN_PKG_BASE}@${CODEGEN_VERSION}}"
@@ -33,21 +35,23 @@ cleanup() {
 }
 trap "cleanup" EXIT SIGINT
 
-OLD_SUM="$(find 'pkg' -type f -exec md5sum {} \; | sort -k 2 | md5sum | "$AWK" '{print $1}')"
+OLD_SUM="$(find "$MODULE_ROOT" -name '*.go' -type f -exec md5sum {} \; \
+	| sort -k 2 | md5sum | "$AWK" '{print $1}')"
 
 bash "$CODEGEN_PKG_PATH/generate-groups.sh" \
 	'all' \
-	"$MODULE_NAME/pkg/client" \
-	"$MODULE_NAME/pkg/apis" \
+	"$MODULE_NAME/client" \
+	"$MODULE_NAME/apis" \
 	'acti.cslab.ece.ntua.gr:v1alpha1' \
 	--output-base "$TMP_GEN_DIR" \
 	--go-header-file "${MODULE_ROOT}/hack/acti-boilerplate.go.txt"
 
-"$RSYNC" -a "$TMP_GEN_DIR/$MODULE_NAME/pkg/client" "$MODULE_ROOT/pkg"
+"$RSYNC" -a "$TMP_GEN_DIR/$MODULE_NAME/client" "$MODULE_ROOT"
 "$RSYNC" -a \
-	"$TMP_GEN_DIR/$MODULE_NAME/pkg/apis/acti.cslab.ece.ntua.gr/v1alpha1/zz_generated.deepcopy.go" \
-	"$MODULE_ROOT/pkg/apis/acti.cslab.ece.ntua.gr/v1alpha1/zz_generated.deepcopy.go"
+	"$TMP_GEN_DIR/$MODULE_NAME/apis/acti.cslab.ece.ntua.gr/v1alpha1/zz_generated.deepcopy.go" \
+	"$MODULE_ROOT/apis/acti.cslab.ece.ntua.gr/v1alpha1/zz_generated.deepcopy.go"
 
-NEW_SUM="$(find 'pkg' -type f -exec md5sum {} \; | sort -k 2 | md5sum | "$AWK" '{print $1}')"
-[ "$OLD_SUM" == "$NEW_SUM" ] || echo -e '\n\t==>  ./pkg/client/ MODIFIED!\n'
+NEW_SUM="$(find "$MODULE_ROOT" -name '*.go' -type f -exec md5sum {} \; \
+	| sort -k 2 | md5sum | "$AWK" '{print $1}')"
+[ "$OLD_SUM" == "$NEW_SUM" ] || echo -e '\n\t==> GENERATED CODE MODIFIED!\n'
 

@@ -17,7 +17,9 @@
 GO ?= go
 SHADOW ?= $(shell $(GO) env GOPATH)/bin/shadow
 
-all: lint
+
+.PHONY: all build lint tidy update-codegen generate
+all: build
 
 build:
 	$(GO) build ./...
@@ -25,16 +27,21 @@ build:
 lint:
 	$(GO) vet -vettool=$(SHADOW) ./...
 
+tidy:
+	$(GO) mod tidy -v
+
+
 update-codegen: generate tidy
 generate:
 	@#$(GO) mod download -x
 	@$(CURDIR)/hack/update-codegen.sh
 
-tidy:
-	$(GO) mod tidy -v
 
+.PHONY: clean genclean
 clean:
 	$(GO) clean -cache -modcache -r -i
 
-.PHONY: all build lint update-codegen generate tidy clean
+genclean:
+	$(RM) -rv ./client \
+		./apis/acti.cslab.ece.ntua.gr/v1alpha1/zz_generated.deepcopy.go
 
