@@ -1,5 +1,3 @@
-#!/bin/bash
-#
 # Copyright 2022 Christos Katsakioris
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,6 +23,7 @@ build:
 	$(GO) build ./...
 
 lint:
+	[ -f $(SHADOW) ]
 	$(GO) vet -vettool=$(SHADOW) ./...
 
 tidy:
